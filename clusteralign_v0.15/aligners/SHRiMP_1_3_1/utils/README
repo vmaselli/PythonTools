@@ -1,0 +1,12 @@
+$Id: README 355 2009-08-13 19:13:20Z rumble $
+
+Program			Function
+-------			--------
+colourise.py		convert letterspace fasta files to colourspace
+extractseq.py		extract a bit of sequence from a fasta file
+findseq.py		find all sequence occurrences in a fasta file
+revcmpl.py		reverse-complement a contig
+splitreads.py		split fasta read files into smaller chunks
+splittigs.py		split fasta contig files into one file per contig
+shrimp2sam.pl		SHRiMP output -> SAM output converter
+probcalc2wig.pl		Probcalc -> WIG (UCSC genome browser) converter

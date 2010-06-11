@@ -1,0 +1,56 @@
+mem_readmap
+-----------
+
+  A = [n_seeds] x [map_size] x ( 8 + 4 )
+
+  Where:
+
+    [map_size] = 4^[seed_weight], if not using hashing (-H)
+               = 4^12, if using hashing
+
+    8: ptr to read list
+    4: length of read list
+
+  B = [n_reads] x [n_seeds] x [avg_n_kmers] x 8
+
+  Where:
+
+    [avg_n_kmers] = [avg_read_length] - 1 - [avg_seed_span]
+
+    8: read id, and location of kmer inside read
+
+  C = [n_non_empty_read_lists] x (8 + 16)
+    <= min( [n_reads] x [n_seeds] x [avg_n_kmers], [map_size] ) x 24
+
+    8: final entry in read list, for non-empty lists.
+    16: per-pointer heap allocation overhead (presumably, address&length)
+
+    Note: For every read list, we need a way to tell where it ends, so we only
+    need either the length of the list (in part A) or the final entry (in part
+    C). Currently we keep both, which is slightly inefficient.
+
+
+mem_reads
+---------
+
+  D = [n_reads] x ( sizeof(read_entry) + sizeof(read_entry_scan)
+                    + [max_cache_size=32] x sizeof(cache_entry) )
+    = [n_reads] x ( 348 + 8 x [num_matches] )
+
+  Where:
+
+    sizeof(read_entry) = 84
+
+    sizeof(read_entry_scan) = 8 + ([num_matches] x 8)
+
+    sizeof(cache_entry) = 8
+
+mem_scores
+----------
+
+  E = [n_reads] x (1 + [avg_num_matches]) x sizeof(re_score)
+    = [n_reads] x (1 + [avg_num_matches]) x 45
+
+  Where:
+
+    sizeof(re_score) = 45

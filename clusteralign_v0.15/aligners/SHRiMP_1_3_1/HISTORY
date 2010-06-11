@@ -1,0 +1,170 @@
+$Id: HISTORY 450 2009-11-23 23:45:30Z matei $
+
+1.3.1: November 23, 2009
+	- Fixed bug which caused allocation of 8 bytes per int even on systems
+	  where sizeof(int)=4. This should reduce the virtual memory usage, but
+	  not the resident size (on a regular kernel).
+	- Fixed generation of kmers at the beginning of a contig. This should
+	  increase sensitivity when using small database sequences (e.g.,
+	  miRNA).
+
+1.3: September 28, 2009
+	- Proper support for multiple seeds. We now have one readmap per seed,
+	  and we keep track of which seed every kmer originates from.
+	- Seeds can now have different spans and weights.
+	- Parameter -s now accepts: a single seed, or a comma-separated list of
+	  seeds, or "w<weight>" for loading default seeds of weight <weight>.
+	- New meaning for "window length" (-w) parameter. Now, this value
+	  controls the size of the genome window against which a read is
+	  matched. Default is 135% of the read length. To trigger an SW filter
+	  call, num_matches (-n) kmers must match between the genome and a read
+	  within such a window.
+	- Implemented colinearity check. To trigger an SW filter call, the kmers
+	  that match the genome and a read must be colinear. Kmers that match a
+	  given read several times are treated as wildcards with respect to this
+	  check.
+	- Implemented an option to restrict full SW run through the use of
+	  "anchors" or "necks" around the kmers which triggered the SW call. The
+	  width of these anchors defaults to 8, and it can be controlled by the
+	  new parameter -A. Anchors are disabled by specifying -1 as width.
+	- Improved prefetching hints.
+	- Added a hash-and-cache option during genome scan, see README for
+	  details. This helps dealing with reads that match many times. It is
+	  enabled by default, and can be disabled by giving the -Z flag. The
+	  minimum and maximum sizes of the (per-read) cache can be set by the
+	  parameter -Y <min>,<max>. The cache grows from <min> in factors of 2
+	  until it becomes greater than or equal to <max>. The defaults are
+	  min=2 and max=32.
+	- Added option -M to display brief memory usage statistics. This is
+	  enabled by default.
+	- Changed default parameters to 4 seeds of weight 12 and n=4 matches per
+	  window. This should be significantly faster than the previous
+ 	  defaults, which used 1 seed of weight 8 and n=2 matches per window.
+
+1.2.2: ?, 2009
+	- Fix unknown base ('N') handling in shrimp_var (Stéphane Audic).
+	- Added a SHRiMP to SAM output converter (Nils Homer).
+	- Added a Probcalc to WIG output converter (Elizabeth Chun). 
+
+1.2.1: June 30, 2009
+	- Fix a few Sun Studio Compiler portability bugs. 
+	- rmapper-ls: make it clear when S-W Threshold is absolute vs.
+	  fractional. 
+	- Make the vector sw algorithm bail upon set up if the match value
+	  times the maximum read length exceeds 32767, since this it the
+	  highest score we can attain with pre-SSE4 16-bit instructions.
+	  Correspondingly, divide the rmapper S-W defaults by 10 to make
+	  longer reads work.
+	- Add a -T flag to rmapper, which when set causes tie-breaks to
+	  be broken in the opposite order during full alignment. This
+	  should help alignment gaps line up when negative alignments are
+	  reverse-complemented and lined up against positive ones.
+	- Add a -U flag to rmapper, which outputs a list of unmapped reads
+	  after all of the alignments. See the README for more information.
+	- Add experimental support for multiple spaced seeds (enabled by
+	  passing multiple '-s' arguments to rmapper.
+	- Add the 'shrimp_var' utility, which prints detailed variations
+	  detected for specific hits.
+	- Handle uracil better for rna alignments, especially in colourspace.
+	- Fix a bug that was pruning kmers with wobble bases or
+	  uracil unnecessarily.
+	- Misc. bug fixes.
+	- Misc. documentation updates.
+
+1.2.0: February 27, 2009
+	- Reduce memory usage substantially by dynamically allocating the
+	  hit heap, rather than preallocating it all up front in rmapper.
+	- Various probcalc fixes.
+	- Added 'probcalc_mp' utility for matepair analysis.
+	- Fixes to compile under Sun Studio 12 for Solaris x86 and amd64.
+	- Treat '-' in fasta file sequences (often found in individual,
+	  aligned haplome sequences) as spaces, i.e. ignore them.
+	- Added experimental support for larger seeds, up to a span of 128 with
+	  any weight up to 128. Should work fine, but performance
+	  characteristics haven't been evaluated.
+	- Misc. documentation updates.
+
+1.1.0: July 19, 2008
+	- Yet another new output format with edit strings to concisely
+	  describe the read->reference changes.
+	- Fixed a nasty strict aliasing bug.
+	- rmapper scores are now sorted (again) and duplicates are removed.
+	- Added rates calculation input to probcalc so that rates may be
+	  computed in parallel, joined, and then probabilities computed
+	  in parallel as well.
+	- Fixed a number of problems in probcalc's equations, small number
+	  handling, and now output in scientific notation.
+	- prettyprint-* will now only use memory in proportion to the input set,
+	  rather than pulling all reads into memory.
+	- All programs and utilities now accept both regular and gzip'd input
+	  files.
+	- Fixed missed cycle handling in SOLiD reads.
+	- Fixed a bug in printing fringe genome bases on the negative strand.
+	- Fixed a bug that improperly reverse-complemented the middle 8 bases
+	  in a contig.
+	- Various speed improvements.
+	- Initial DAG aligner implementation for Helicos Single-Molecule
+	  Sequencing.
+	- Converted miscellaneous tools to python and moved them to utils/.
+	- Misc. bug fixes.
+
+1.0.5: March 25, 2008
+	- Increased spaced seed weight by 2 for letter space, as 454 and
+	  Illumina/Solexa reads are generally longer than AB.
+	- Changed default gap open penalty from -300 to -400.
+	- Changed default crossover penalty from -120 to -140 (for ABI SOLiD).
+	- Disabled kmer pruning by default. This feature sometimes prunes too
+	  many kmers and confuses users. It still offers an important speed-up,
+	  but the user should be aware of (and responsible for) its use.
+	- Fixed handling of wobble codes on the negative strand.
+	- Handle `.' ambiguous bases as `N'.
+	- Fixed whitespace and MS-DOS newline fasta parsing problems affecting
+	  Illumina/Solexa and 454 users.
+	- Fixed wobble code handling for negative strands.
+	- Added read length relative parameters to rmapper. Now -h, -v, and -w
+	  can take either absolute or percentage arguments (differentiated by
+	  a '.' or '%' in the string). This allows more flexible score
+	  thresholding and windowing for input with differing read lengths
+	  (454, especially).
+	- Fixed a few GCC 4 compiler warnings.
+
+1.0.4: January 24, 2008
+	- Changed rmapper default parameters to be more appropriate for the
+	  human genome.
+	- Applied fixes to the full colourspace Smith-Waterman algorithm. In
+	  some cases we were not tracing back into the proper matrix. Initial
+	  crossovers are now charged.
+	- Added Phil Lacroute's mergehits utility.
+	- Taught rmapper and prettyprint to handle multiple contigs per genome
+	  file.
+	- Fixed a minor bug that would miss hits within the first window of a
+	  contig.
+	- Fixed a bug in probcalc that would recalculate rates on non-regular
+	  files.
+	- Added surrounding bases to pretty-printed genome output.
+	- Taught probcalc and prettyprint to handle symlinks.
+	- Taught probcalc to accept multiple results arguments as both files and
+	  directories of files.
+	- Taught SHRiMP about wobble codes (by considering them as mismatches).
+	- Added -S flag to probcalc and made double pass mode the default (now
+	  probcalc uses much less memory at a higher runtime cost).
+	- Added -C and -F options to rmapper to specify the strand.
+	- Misc. portability and compilation fixes.
+	- Misc. documentation updates.
+
+1.0.3: Fall 2007
+	- Internal development version. S-W fixes and probcalc double pass.
+
+1.0.2: November 6, 2007
+	- Fix invalid assertion in common/output.c:output_pretty.
+	- probcalc progress bar disabled by default (enabled by -B flag).
+	- Misc. documentation updates.
+
+1.0.1: November 2, 2007
+	- First public release. New output format.
+	- '-b', '-p' flags changed to '-B', '-P'. (Parameters lowercase,
+	  options uppercase).
+	- Multiple contig support and internal reverse-complementing of contigs.
+
+1.0.0: Summer 2007
+	- Internal development version. Old ouput format.

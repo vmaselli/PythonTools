@@ -1,0 +1,27 @@
+$Id: BUILDING 393 2009-10-05 17:53:25Z matei $
+
+Building rmapper is easy - it requires a C++ compiler (gcc, icc and Sun Studio
+12 have been used during development) and gmake. Intel's C Compiler (icc) is
+_highly_ recommended as it is often at least 10-20% faster than gcc. All
+official SHRiMP binary releases are compiled using icc for Linux and OS X and
+Sun Studio on Solaris).
+
+Please note that rmapper is x86-only. Pentium 4 architectures seem to benefit
+considerably from 64-bit compiled code, whereas Core 2 architectures don't
+seem to care much.
+
+When building with icc, execute the following:
+    gmake CXX="icc" CXXFLAGS="-Kc++ -wd383,981,1572 -axP -O3 -ipo"
+
+When building with Sun Pro under Solaris, execute the following:
+    gmake CXX="CC" CXXFLAGS="-xarch=sse2 -features=zla,extensions -fast -xvector=simd"
+For 64-bit compiles (recommended), supply the "-m64" flag as well, i.e.:
+    gmake CXX="CC" CXXFLAGS="-m64 -xarch=sse2 -features=zla,extensions -fast -xvector=simd"
+
+When building with gcc, execute the following:
+    gmake CXX="g++" CXXFLAGS="-O3 -mmmx -msse -msse2"
+GCC 4 users should also supply appropriate -ftree-vectorize and -march flags.
+
+You may want to adjust your flags depending on your hardware and compiler
+versions. The above icc CXXFLAGS seemed optimal for both Pentium 4 and Core 2
+architectures.

@@ -1,0 +1,1096 @@
+$Id: README 424 2009-10-22 20:42:32Z matei $
+
+README for SHRiMP: SHort Read Mapping Package version 1.3.0
+http://compbio.cs.toronto.edu/shrimp
+
+This  document describes the  programs of  which SHRiMP  is comprised, including
+their use,  output formats, and various  parameters. The algorithms employed are
+also briefly described. For more details, see the following publication:
+
+    Rumble SM, Lacroute P, Dalca AV, Fiume M, Sidow A, et al.
+    (2009) SHRiMP: Accurate Mapping of Short Color-space Reads.
+    PLoS Comput Biol 5(5): e1000386. doi:10.1371/journal.pcbi.1000386
+
+SHRiMP is brought to you by:
+	Stephen M. Rumble
+	Michael Brudno
+	Phil Lacroute
+	Vladimir Yanovsky
+	Marc Fiume
+	Adrian Dalca
+	Matei David
+
+The authors may be contacted at shrimp at cs dot toronto dot edu.
+
+We would like to thank Dr. Lucian Ilie of the  University of Western Ontario for
+providing  us  with sets  of spaced  seeds  especially designed  to achieve good
+sensitivity.
+
+
+--------------------------------------------------------------------------------
+Table of Contents
+--------------------------------------------------------------------------------
+  1.   Overview
+  2.   Quick Start
+  3.   Usage
+  4.   Program Parameters
+  5.   Output Format
+  6.   SHRiMP Algorithms
+  7.   SHRiMP Statistics
+  8.   Mate Pairs
+  9.   Contact
+  10.  Acknowledgements
+
+
+--------------------------------------------------------------------------------
+1. Overview
+--------------------------------------------------------------------------------
+
+SHRiMP is a software package for aligning genomic reads against a target genome.
+It was primarily developed with the multitudinous short reads of Next Generation
+Sequencing (NGS)   machines  in mind. It   allows  for  rapid mapping,  accurate
+alignment,  and p-value   computation  for Illumina/Solexa   as well as  Applied
+Biosystems'  SOLiD colourspace   genomic representation. SHRiMP  is   a suite of
+several    programs, which,  employed   in   succession, search for  appropriate
+alignments, analyze alignment statistics, and  print  out visual alignments  for
+further study.
+
+SHRiMP uses two techniques to    rapidly match reads    to a genome: we use   an
+effective implementation  of  the q-gram filtering  technique  (utilizing spaced
+seeds)  to rapidly  identify potentially  homologous   regions, and  a  vectored
+Smith-Waterman  implementation  to speed up  the    accurate alignment of  these
+regions to  reads. We also  include in the SHRiMP  package  tools to analyze the
+resultant alignments, including programs that  compute  for every alignment  the
+probability   that the match  would   occur by chance (in   a   genome with  iid
+nucleotides), a prettyprint tool that can help visualize the alignments for each
+read, and a  variation output tool  (shrimp_var) what will output the variations
+detected for a specific hit in detail. For AB SOLiD colour  space reads we use a
+novel  color-space to   letter-space   Smith  Waterman  algorithm   to  identify
+sequencing errors as well as SNPs and micro-indels. The details of the algorithm
+and the  methods we use to  compute p-values are laid out  in Sections  6 and 7,
+respectively.
+
+
+--------------------------------------------------------------------------------
+2. Quick Start
+--------------------------------------------------------------------------------
+
+  This section provides a very  brief and straightforward introduction to  using
+  SHRiMP. For more details, see Sections 3 and 4.
+
+  2.1 Aligning reads
+  ---
+
+    Use bin/rmapper-foo to  align reads, where  'foo' is  either 'ls',  'cs', or
+    'hs'  for letter-space (454,  Illumina/Solexa), colour-space (AB SOLiD), and
+    Helicos-space (Helicos HeliScope SMS 2-pass reads), respectively.
+
+    E.g.:
+        bin/rmapper-cs reads.csfasta /path/to/genomedir/chr*.fa > output.rmapper
+
+    If  you want  full,  pretty-printed alignments,  use  the -P flag.  For more
+    details about parameters, see Sections 3 and 4.
+
+  2.2 Calculating Probabilities
+  ---
+
+    Use bin/probcalc on the output created by rmapper to generate the statistics
+    described in Section 7. The first parameter is the total genome length.
+
+    E.g.:
+	bin/probcalc 7000000 output.rmapper > output.probcalc
+
+  2.3 Pretty Printing Reads
+  ---
+
+    If the -P flag is not specified to rmapper,  full alignments are omitted. To
+    print alignments  after the fact,  just run bin/prettyprint-foo (where 'foo'
+    is one of 'ls', 'cs', or 'hs').
+
+    E.g.:
+        bin/prettyprint-cs output.probcalc /path/to/genomedir/ reads.csfasta
+
+  2.4 Printing hit variations
+  ---
+
+    To print the variations  in hit alignments  in detail, run shrimp_var on the
+    shrimp/probcalc output.
+  	
+    E.g.:
+  	bin/shrimp_var -r output.probcalc
+        
+  2.5 Combine Reads into Mate Pairs
+  ---
+
+  Use bin/probcalc_mp to combine  the read mappings into  mate pairs. First, one
+  should sort the probcalc  output in one large file  (or a binary file with the
+  datastructure specified by dbtypes.h/mapping_t). To have one large sorted file
+  pipe the  probcalc output through  '> sort'  and finally combine  all files by
+  using '> sort -m'. Finally, run probcalc_mp:
+
+  	./probcalc_mp -m  sortedfile -f _F3 -b _R3 -g 3080419480 -M 2000 
+
+
+--------------------------------------------------------------------------------
+3. Usage
+--------------------------------------------------------------------------------
+
+The distribution makes use of several programs. The  first and most important is
+'rmapper'. 'rmapper' performs Smith-Waterman alignments of multiple reads within
+one fasta file  against one or more  reftigs in other  fasta files. rmapper  was
+designed to map a set of reads against the entire genome  (all contigs and their
+reverse-complements) in one invocation. Parallelism can be achieved by splitting
+the set of reads into N chunks, where N is the desired level of parallelism.
+
+It is important to note  that 'rmapper' is  always given  a reference genome  in
+letter-space, regardless of whether the reads  are in letter-space or AB SOLiD's
+colour-space representation. For   letter-space  reads, use   'rmapper-ls',  for
+colour-space reads, 'rmapper-cs', and for Helicos SMS reads, 'rmapper-hs'. Other
+SHRiMP  utilities that  make assumptions  about  the input  read format  come in
+pairs, i.e. 'foo-ls' and 'foo-cs', for letters  and colours, respectively. Other
+utilities lacking any suffix are format-agnostic.
+
+Once 'rmapper' has been run, the standard output format of all alignments may be
+parsed via the  'probcalc'  program. This code   analyzes all alignment  output,
+saving the top 'n' matches per read, and calculates the probability of the match
+randomly occurring in the genome and matching the  read, and the normalized odds
+(P(read match)/P(random)/normalization_factor).  Thresholds can be  set for each
+to remove undesirably high or low values. Sorting can also be done on any one of
+the three aforementioned parameters.
+
+The  output produced by  the 'probcalc' utility  is  essentially a subset of the
+input, with added 'pgenome', 'pchance' and 'normodds'  fields. These matches may
+then  have  their  full   alignments  printed  using the 'prettyprint'   utility
+(although one could also feed rmapper output to prettyprint directly). Also, the
+shrimp_var utility will print the variations for each hit in detail.
+
+What follows is a complete example of scanning a set of  reads against an entire
+genome (and  its  reverse-complement) from the Ciona   Savignyi organism.  We'll
+then calculate the associated probabilities and print out pretty alignments.
+
+We  shall  assume  a large   set  of colourspace reads  exist  in  a single file
+'reads.csfasta' and the entire Ciona genome exists in 'ciona.fasta' (as a single
+contig), both   in  the present working  directory.  $S  represents the  path to
+SHRiMP.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+PLEASE NOTE:
+    This example uses a lot of parameters to exhibit the configurability of
+    SHRiMP. Settings shown here are not necessarily appropriate for your reads.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  1)  mkdir reads
+  2)  mkdir results
+  3)  cd reads
+  4)  python $S/utils/splitreads.py 1000 ../reads.csfasta
+  5)  cd ..
+  6)  $S/bin/rmapper-cs -m 8 -i -30 -g -35 -e -7 -x -25 -h 70% -v 65% \
+          -M 70bp,fast \
+          -o 100 -B \
+          reads/0_to_999.csfasta ciona.fasta > results/ciona.0_to_999.out
+  or
+      $S/bin/rmapper-cs -m 100 -i -70 -g -100 -e -70 -x -200 -h 70% -v 65% \
+          -s 111100111 -n 2 -t 4 -w 140% \
+          -o 10 -B \
+          reads/0_to_999.csfasta ciona.fasta > results/ciona.0_to_999.out
+  7)  $S/bin/probcalc -p 0.4 -t 10 173673243 \
+          results/ > ciona.0_to_999.probcalc.out
+  8)  $S/bin/prettyprint-cs -m 100 -i -70 -g -100 -e -70 -x -200 \
+         ciona.0_to_999.probcalc.out genome/ reads/
+  9)  $S/bin/shrimp_var -p \
+         ciona.0_to_999.probcalc.out > ciona.0_to_999.probcalc.var 
+
+Lines 1&2 set up the necessary directory  structure. reads/ contains one or more
+fasta files containing letterspace  or colourspace reads. results/  contains the
+results of  the 'rmapper'  pass, which  are  fed to  'probcalc' to  generate the
+probabilities of them being poor matches.
+
+Lines 3&4   split the  reads.csfasta  file,  which  contains a  large  number of
+colourspace reads into smaller chunks. This both saves memory, and permits us to
+parallelize the computation.
+
+Line 6 maps all reads split into the  file 0_to_999.csfasta against ciona.fasta.
+The various parameters are verbosely documented  later in this file. By default,
+rmapper will  employ  settings geared  toward  human reads  of about   50 bases.
+
+  Biological Relevance
+  --
+
+  The options shown on the first line (-m ... -v) are used to set the scores and
+  the  score  thresholds  for  matches.   Even though  'rmapper'  includes  some
+  sensible default settings for these  scores, we suggest  that you provide your
+  own scores and score thresholds, because 'rmapper' has  no way of knowing what
+  is biologically relevant for the sequences being scanned.
+
+  Speed vs Sensitivity
+  --
+
+  The  options shown on  the second line  (-M or -s ... -w)  affect the tradeoff
+  between speed and sensitivity.  By  default, 'rmapper' uses  4 spaced seeds of
+  weight 12 and requires 4 matches between  a read and  a genome window in order
+  to further investigate that particular match.  These settings are targeted for
+  dealing with a  large (>100,000) number  of reads,  of  about 50bp  each.
+
+    ********** NEW in SHRiMP 1.3.0
+    * 'rmapper' comes with  several predefined sets of  parameters,  that can be
+    * loaded using the  option '-M' (explained  below).  We _strongly_ recommend
+    * using one of these sets until becomes familiar with the individual effects
+    * of the other options.
+    **********
+
+ Some further guidelines:
+
+    Seeds (-s):
+
+    - Using as many  (4)   seeds of smaller  weight   (e.g.,  11 or  10)  mildly
+      increases sensitivity but greatly increases running time.
+
+    - Using  a single seed,  even of smaller weight (e.g., 9), is sometimes fast
+      when dealing with few (<10,000) reads.
+
+    - We recommend using the default 4 seeds of weight 12 in most cases.
+
+    Matches per Window (-n):
+
+    - Increasing this parameter  decreases the running time,  but also decreases
+      sensitivity.
+
+    - The default is 4, which is targeted towards dealing with 50bp reads.
+
+    - For smaller reads (e.g.,  35bp or 25bp), a setting of 3 or even 2 might be
+      more desirable in order to achieve good sensitivity.
+
+    - For longer reads, (e.g. 70bp or 100bp), settings above 6 no longer provide
+      substantial speed benefits.
+
+    Window Length (-w):
+
+    - By default, reads are aligned against genome windows of 135% the length of
+      the read.
+
+    - For  smaller reads (e.g., 35bp  or 25bp), we  recommend increasing this to
+      150% or even 170%.
+
+    - For longer reads, we recommend a slightly lower setting, say 125%.
+
+  Note: The options given to 'rmapper' need not  be ordered in  the way they are
+  in the example.
+
+The output of 'rmapper' is piped into a file in the results/ directory for later
+evaluation.   This step could be   parallelized  across all *_to_*.csfasta files
+created by splitreads.  Note that the genomic  file  may contain one or  several
+contigs,  that  multiple  genome  files  may  be  specified,  and  that  reverse
+complements are automatically scanned as well.
+
+Line 7 calculates the probability of each hit generated  by 'rmapper' being bad.
+It takes two mandatory parameters: the total  concatenated genome length, and at
+least  one shrimp results file or  directory of  results file(s) (multiple files
+and/or directories may be specified). The output is piped into a further results
+file for later evaluation by the  'prettyprint-cs' program. Note that 'probcalc'
+should be run  once  enough results  have been  gathered to generate  reasonable
+statistics. Since  this phase  takes a  relatively  short amount of time,  it is
+probably best done once sequentially for all output  generated. However, one may
+also use the   -G and -g   flags to probcalc   to run  statistics generation  in
+parallel, sequentially merge the statistics (i.e. just concatenate outputs), and
+calculate probabilities in parallel as well. See Section 4 for more details.
+
+Also note that probcalc mandates that results for a single read do not appear in
+multiple files. If rmapper has  been run against the  entire genome for some set
+of  reads this assumption    will hold. See    section 4 for   details regarding
+probcalc's parameters.
+
+Line  8 prints pretty visual  alignments of our  resultant mappings. It requires
+knowing all genomic  and reads files in order  to locate each read referenced in
+the  input file (generated  by either  'rmapper' or 'probcalc')  and aligns them
+against the appropriate contig in the genome.  Alternatively, one could have run
+rmapper with the -P flag to generate these  in the initial output (although that
+could  consume a  considerable  amount of   disk  space). Note that  rmapper and
+prettyprint share the same default   parameters. Deviating from the defaults  in
+rmapper means having to provide the appropriate  S-W penalties to prettyprint as
+well.
+
+Line  9  outputs the  variations   of the hits   computed  by rmapper in detail,
+specifically SNPs, insertions and deletions.  The needed flag  is the input file
+type, that is  -r for rmapper  and -p for probcalc. If   the -R flag is  used in
+rmapper, it should also be supplied to shrimp_var.
+
+--------------------------------------------------------------------------------
+4. Program Parameters
+--------------------------------------------------------------------------------
+
+'rmapper' takes a variety  of  parameters, which   differ sightly depending   on
+whether colour-space or letter-space reads are being employed. What follows is a
+run-down of these options (in some strange, non-alphabetical order).
+
+    rmapper-cs and rmapper-ls parameters (common parameters):
+
+	[ -M mode ]
+
+	Selects one of the default sets of  parameters.  The possible values are
+	{'fast'/'sensitive'}, {'35bp'/'50bp'/'70bp'}. Several modes can be given
+	as '-M 35bp -M sensitive' or comma-separated as  '-M fast,70bp', but you
+	should  specify  at most one   value from each  set   above. By default,
+	'rmapper' uses '50bp' and 'fast'.
+
+	The values 'fast'/'sensitive' provide basic  tradeoffs between speed and
+	sensitivity. The values '35bp'/'50bp'/'70bp' load settings suggested for
+	dealing with reads of (around) that length.
+
+	The   mode    currently sets:   the    seeds, 'seed_matches_per_window',
+	'seed_taboo_length'   and  'seed_window_length'  (see  their  individual
+	descriptions  below).  If any  of these is explicitly   set with its own
+	flag, that value  overrides the value that  would have been selected  by
+	the mode.
+
+	Modes are not available in Helicos space.
+
+	[ -s spaced_seed ]
+
+	The  spaced seed is  a  single contiguous  string of  0's  and 1's.  0's
+	represent wildcards,  or positions  which will  always  be considered as
+	matching, whereas 1's dictate positions that must match. A string of all
+	1's will result in a simple kmer scan.
+
+	Multiple -s arguments  may be provided,  in which case rmapper  will use
+	all of the spaced   seeds.  Multiple seeds  can  also be specified as  a
+	comma-separated  list, e.g.,   '-s 1101,111011'.  'rmapper'   comes with
+	several predefined sets of spaced  seeds for specific weights. These can
+	be selected by prefixing the weight with a 'w', e.g., '-s w10' loads the
+	default (4) seeds of weight 10.
+
+	Note that, by  default, our implementation  creates a lookup table based
+	on the kmer size (spaced seed 'weight', or number of 1's).  Hence memory
+	usage increases by a  factor of four for each  addition 1. At 16,  we're
+	looking at  a 32GB hash table allocation  for  32-bit architectures. See
+	the -H option for  an alternative method,   which creates a hash  table,
+	permitting much larger seeds.
+
+	[ -n seed_matches_per_window ]
+
+	The number of seed matches per window dictates how many seeds must match
+	within some window length of the genome before that region is considered
+	for  Smith-Waterman alignment.  A lower  value will increase sensitivity
+	while drastically increasing  running time. Higher  values will have the
+	opposite effect.
+
+	[ -t seed_taboo_length ]
+
+	The seed taboo length specifies how  many target genome bases or colours
+	must exist prior to a previous seed match in order to count another seed
+	match as a hit.
+
+	[ -w seed_window_length ]
+
+	This parameter specifies  the length in bases (or  colours) of a genomic
+	window against which a read  is aligned. It is  either an absolute value
+	(e.g., '-w 67'), or a percentage  of the read  length (e.g., '-w 150%').
+	In  order for  a read  to  be given consideration by  the Smith-Waterman
+	alignment machinery, 'seed_matches_per_window'  must be  detected within
+	such a genomic window.
+
+	[ -W window_overlap_length ]
+
+	After a genomic  window A is found  to contain a  significant match to a
+	given read, no genomic window B is investigated for matches against that
+	same read as long as B overlaps A by more than 'window_overlap_length'.
+
+	[ -o maximum_hits_per_read ]
+
+	This parameter specifies how  many  hits to remember  for each  read. If
+	more hits are encountered,  ones with lower scores  are dropped  to make
+	room.
+
+	[ -d kmer_std_dev_limit ]
+
+	This option permits pruning  read  kmers, which occur with   frequencies
+	greater    than 'kmer_std_dev_limit'   standard  deviations    above the
+	average. This can shorten running time at the cost of some sensitivity.
+
+	NB: A negative value disables this option.
+
+	[ -m sw_match_value ]
+
+	The   value    applied  to matches     during the   Smith-Waterman score
+	calculation.
+
+	[ -i sw_mismatch_value ]
+
+	The  value applied  to   mismatches   during the  Smith-Waterman   score
+	calculation.
+		
+	[ -g sw_gap_open_penalty_reference ]
+
+	The value applied to gap  opens along the  reference sequence during the
+	Smith-Waterman score calculation.
+
+	Note  that for backward compatibility, if  -g is set  and -q is not set,
+	the  gap open penalty  for the query will  be  set to  the same value as
+	specified for the reference.
+
+	[ -q sw_gap_open_penalty_query ]
+
+	The value applied to   gap opens along   the query sequence during   the
+	Smith-Waterman score calculation.
+
+	[ -e sw_gap_extend_penalty_reference ]
+
+	The  value  applied to  gap  extends   during  the  Smith-Waterman score
+	calculation.
+
+	Note that for  backward compatibility, if -e is  set and -f  is not set,
+	the gap  extend penalty for the  query will be  set to the same value as
+	specified for the reference.
+
+	[ -f sw_gap_extend_penalty_query ]
+
+	The value   applied  to  gap extends   during  the  Smith-Waterman score
+	calculation.
+
+	[ -h sw_threshold ]
+
+	NB: This option  differs  slightly in meaning between  letter-space  and
+	colour-space.
+
+	In letter-space, this parameter determines the  threshold score for both
+	vectored  and full Smith-Waterman alignments. Any  values less than this
+	quantity will be thrown away.
+
+	In colour-space,  this parameter affects only   the full Smith- Waterman
+	alignment, which   is performed in   letter-space. The threshold  of the
+	colour-space  fast  vectored  alignment can  be    specified  by the  -v
+	option. Generally, the -h parameter should be stricter (higher) than the
+	-v   option, since    naive   colour-space   alignments  using   regular
+	Smith-Waterman suffer additionally due  to artifacts such as single SNPs
+	resulting in two colour mismatches.
+
+	[ -Z ]
+
+	Disable hash-and-cache mechanism  during  genomic scan  (see  Algorithms
+	section for more details).
+
+	[ -Y min_cache_size,max_cache_size ]
+
+	Controls the  per-read cache size used   by the hash-and-cache mechanism
+	(see Algorithms section for more  details). The  first time a  potential
+	match is found for  a read, a cache  is initialized for that read,  with
+	size 'min_cache_size'. Subsequently, on  cache misses with a full cache,
+	the size of the cache is doubled until  it reaches 'max_cache_size'. The
+	absolute maximum is 128.
+
+	[ -A anchor_width ]
+
+	For every match of a read against  a genomic window, 'rmapper' saves the
+	positions  of the 'seed_matches_per_window'   kmers that triggered  that
+	match.    Subsequently,  during  the  final    Smith-Waterman alignment,
+	'rmapper'  restricts the computed region   of  the 2D matrix by   adding
+	"anchors"  or  "necks" of    width 'anchor_width'  around    the matched
+	kmers. The default value  is 8. Use of anchors  is disabled by providing
+	-1 as width.
+
+	[ -B ]
+
+	This option simply  prints a  progress bar to  stderr during  the spaced
+	seed scan   and  vectored Smith-Waterman phases.  It   exists to  give a
+	general feel for run-time when  testing parameters.  Since it will  slow
+	down execution speed noticeably (25% or so), it is not enabled by default
+	and should only be used during manual, interactive execution.
+
+	[ -C ]
+
+	Only   process   the  negative  strand  of    the  genome  (the  reverse
+	`C'omplement). By default, both strands are scanned.
+
+	[ -F ]
+
+	Only  process the positive strand  of the  genome (going `F'orwards). By
+	default, both strands are scanned.
+
+	[ -H ]
+
+	Use a hash table, rather than a direct lookup table for seeds.  A direct
+	lookup  will  be more  efficient for  small  seeds,  but quickly becomes
+	prohibitively large  for longer ones. For seeds  of  weight greater than
+	about 14, this option should be used.
+
+	Note that rmapper will not automatically switch to using a hash table if
+	the  seed is too  large for a direct  lookup, the reason being that this
+	option has simply not been as well-tested.
+
+	Note also that this cannot be used in conjunction with the -d parameter.
+
+	[ -P ]
+
+	'rmapper' has two output formats. The first,  and default, prints a list
+	of appropriately   scoring reads and  various  parameters, such as where
+	they occurred  in the genome (index),  how many matches, mismatches, and
+	gaps there were, and so  forth.  The '-P' flag  enables a 'pretty print'
+	output, which displays similar parameters, but also a full alignment.
+
+	These  alignments can  also  be obtained after  the  fact by running the
+	default output file through the 'probcalc' program.
+
+	[ -R ]
+
+	Include  the entire  read sequence  in the  output  generated. This will
+	consume huge  gobs of  disk space  for  large reads  and  is disabled by
+	default. Saved reads are placed in the 'r_seq' key.
+
+	[ -T ]
+
+	Reverse the  order in which tie-breaks are  resolved in the full aligner
+	when doing  the negative  strand.  This  should help line  up  gaps when
+	negative matches  are  reverse-complemented  and compared with  positive
+	matches.
+
+	[ -U ]
+
+	After performing  all alignments and outputting  the results, generate a
+	list   of unmapped reads    (i.e.    reads for which  no    sufficiently
+	high-scoring alignment was found in a contig). The  reads are listed one
+	per line and follow  a special comment header  to separate them from the
+	alignment  results. For  example, the  output file  will eventually look
+	something like the following:
+
+	    ...
+	    >1035_1688_1316_F3      reftig_9        -       3721634 ... 
+	    >1035_1688_1316_F3      reftig_9        -       3721162 ... 
+	    >1035_1688_1316_F3      reftig_9        -       3722237 ... 
+	    #
+	    #UNMAPPED READS:
+	    #
+	    1035_1577_840_F3
+	    1035_1587_820_F3
+	    1035_1594_1563_F3
+	    ...
+
+	To extract the list of unmapped reads from  the output file, simply list
+	every line following "#UNMAPPED READS:".  This can be accomplished  with
+	the utils/extractunmapped.py script:
+
+		    python utils/extractunmapped.py /path/to/results.out
+
+	Alternatively, one can use the following grep command: 
+
+		    grep -A 2147483647 "^#UNMAPPED READS:" /path/to/results.out
+
+        `2147483647'  is the  number  of  lines after  the   matching context to
+        output. In the  case where we want them  all, 2147483647 is  the largest
+        acceptable value for GNU grep.
+
+    rmapper-cs-specific parameters:
+
+	[ -x crossover_penalty ]
+
+	This specifies  the  penalty     applied when   transitioning    between
+	Smith-Waterman matrices during the  full scan phase. While the vectored
+	scan applies  to  colour-space,  the  final full  alignment is  done  in
+	letter-space.   Since each next letter  in   letter-space depends on the
+	previous letter  and colour,  any error on   the colour space  read will
+	affect  all following  letters when converting   to text space. For this
+	reason, we must perform our alignment of all  four possible letter space
+	translations of the read  and permit jumping  between matrices (at  the
+	crossover_penalty) cost, when errors occur.
+
+	[ -v sw_vector_hit_threshold ]
+
+	Unlike in   letter-space, where  the  vectored Smith-Waterman   and full
+	Smith-Waterman  alignments are done both    in letter-space and  present
+	identical   scores, in colour-space  the   vectored score represents the
+	original colour-space  read aligned to   the colour-space translation of
+	the  genome. This will  differ from the  final  alignment, which is done
+	purely in letter-space.  Since the  function of the vectored pass exists
+	merely to prune insufficiently good  alignments and the vectored pass is
+	not a  true  textual alignment, scores  for  both passes are   likely to
+	differ. Generally, since a single SNP in letter-space will result in two
+	colour  changes, the threshold  for the colour-space alignment should be
+	less than that of letter-space.
+
+    rmapper-ls-specific parameters:
+
+	None for now.
+
+'prettyprint' currently takes only one optional parameter.
+
+    prettyprint-cs and prettyprint-ls parameters (common parameters):
+
+	[ -m sw_match_value ]
+
+	See the 'rmapper' -m description.
+
+	[ -i sw_mismatch_value ]
+
+	See the 'rmapper' -i description.
+
+	[ -g sw_gap_open_penalty_reference ]
+
+	See the 'rmapper' -g description.
+
+	[ -q sw_gap_open_penalty_query ]
+
+	See the 'rmapper' -q description.
+
+	[ -e sw_gap_extend_penalty_reference ]
+
+	See the 'rmapper' -e description.
+
+	[ -f sw_gap_extend_penalty_query ]
+
+	See the 'rmapper' -f description.
+
+	[ -R ]
+
+	Include the entire read sequence in the output generated. This will only
+	have an effect for input lines containing the 'r_seq' key.
+
+	[ -T ]
+
+	Reverse the  order in which tie-breaks  are resolved in the full aligner
+	when doing the negative  strand.  This  should  help line up  gaps  when
+	negative  matches  are reverse-complemented and  compared  with positive
+	matches.
+
+    prettyprint-cs-specific parameters:
+
+	[ -x crossover_penalty ]
+
+	See the 'rmapper-cs' -x description.
+
+    prettyprint-ls-specific parameters:
+
+	None for now.
+
+
+'probcalc' takes a few optional parameters as well:
+
+	[-g rates_file]
+
+	Rather  than calculating  rates  of alignment  events using the provided
+	output file, assume the ones provided in 'rates_file'.  This may be used
+	to run probcalc in parallel by  first running all  instances with the -G
+	flag, concatenating  those outputs into a  single 'rates_file', and then
+	running once more with the -g parameter to generate probabilities.- .
+
+	[-n normodds_cutoff]
+
+	Set a threshold for normodds. Any values lower  than this threshold will
+	be suppressed.
+	
+	[-o pgenome_cutoff]
+
+	Set  a threshold for pgenome. Any  values lower than this threshold will
+	be suppressed.
+	
+	[-p pchance_cutoff]
+
+	Set a threshold for pchance. Any values higher  than this threshold will
+	be suppressed.
+
+	[-r erate,srate,irate,mrate]
+
+	Rather than calculate rates  of various events, provide them  explicitly
+	and use  those values   in the  calculations. Here,   'erate',  'srate',
+	'irate' and 'mrate' mean errors (miscalls), substitutions (SNPs), indels
+	and matches, respectively.
+
+	Values should be in the range 0.0 to 1.0.
+	
+	[-s normodds|pgenome|pchance]
+
+	Sort  based  on normodds,  pgenome,   or pchance given  the  appropriate
+	string.
+
+	[-t top_matches]
+
+	Save only top_matches best matches.
+
+ 	[ -B ]
+ 
+ 	Print a progress bar to stderr during various phases of computation.
+
+	[ -G ]
+
+	Only generate rates of various alignment events and send them to stdout.
+	This can be used to run probcalc in parallel. See also '-g'.
+
+	[ -R ]
+ 
+	Include the entire read sequence in the output generated. This will only
+	have an effect for input lines containing the 'r_seq' key.
+
+ 	[ -S ]
+ 
+ 	Do everything in  a single pass. Typically  probcalc  will run  over all
+ 	rmapper results files  twice in order to  save memory. This option  will
+ 	use one pass only  at the expense of  using far more memory than  usual,
+ 	however, a significant speed advantage   is gained. Additionally,  while
+ 	probcalc normally mandates that results from rmapper for a specific read
+ 	appear  in at  most  one  file, this   option  does  not have the   same
+ 	restriction.
+
+
+'probcalc_mp' takes quite a few parameters. 
+
+    Mandatory parameters:
+
+	[-m mapping_filename] 
+		
+	the mapping file (normal text or binary)
+		
+	[-f forward_suffix]
+		
+	the suffix for forward reads. For e.g.: "_F3"
+		
+	[-b reverse_suffix] 
+		
+	the suffix for backwards (reverse) reads. For e.g.: "_R3"
+		
+	[-g genome_length] 
+		
+	the genome length, for purposes of pchance computation
+		
+	[-M hard_distance_limit] 
+		
+	for computing the mean statistics, the hard M limit 
+		
+    Optional parameters:
+	
+	[-L nr_mate_pairs] 
+		
+	the  number  of  *good* mate    pairs  to include   in  the   statistics
+	calculations. do -L 0 to include *all* good mate pairs.  default: 50,000
+		
+	[-i file_type]
+		
+	the type of file, file_type can be 'ascii' or 'binary'
+		
+	[-R] 
+		
+	indicator  that the read  sequence is included in  the input, as used by
+	probcalc
+		
+	[-x max_reads_to_expect] 
+		
+	the maximum number of mappings one should expect for one read
+		
+	[-d]
+		
+	discordant analysis.
+		
+	[-u]
+		
+	in computing the mean, use unique mappings only
+		
+	[-T max_reads_to_output] 
+		
+	the maximum(ish) number of mappings to output per mate pair
+		
+	[-C PCHANCE_CUTOFF]
+		
+	pchance cutoff
+		
+	[-G PGENOME_CUTOFF]
+		
+	pgenome cutoff
+		
+	[-s nr_stdevs] 
+		
+	after computing  stats, M  (hard_distance_limit) is set   to the mean  +
+	nr_stdev * stdev. Default: nr_stdevs = 2;
+		
+	[-c ] 
+		
+	do not print mate-pairs with hits on different chromosomes
+
+
+'shrimp_var' takes only few parameters:
+
+    Mandatory
+
+	[-r | -p]
+		
+	tell shrimp_var weather the input files are rmapper or probcalc input.
+		
+    Optional
+	
+	[-R ]
+		
+	indicator that the  read sequence is included  in the input, as  used by
+	probcalc
+
+		
+--------------------------------------------------------------------------------
+5.0 Output Format
+--------------------------------------------------------------------------------
+
+rmapper  probcalc, and prettyprint all  adhere to a  common output format: lines
+corresponding  to individual hits  with tab-delimited fields.  Such lines always
+begin with a '>' character in the first position. All utilities ignore any lines
+that do not begin with '>', such as alignments, comments, etc.
+
+Here's an example ('\'  indicates continuation of the same  logical line on  the
+next line of this README file and does not appear in the actual output):
+
+    >947_1567_1384_F3       reftig_991      +       22901   22923   3       \
+    25      25      2020    18x2x3
+
+Additionally, the beginning  of each output file begins  with a specification of
+the tab-delimited fields.  For example, the  following applies to the above read
+hit:
+
+    #FORMAT: readname contigname strand contigstart contigend readstart readend\
+     readlength score editstring
+
+The #FORMAT: line allows new fields to be unambiguously added, or others removed
+or reordered without requiring alteration to the parsing routines.
+
+Descriptions of the columns are as follows:
+
+	'readname'	Read tag name
+	'contigname'	Genome (Contig/Chromosome) name
+	'strand'	Genome strand ('+' or '-')
+	'contigstart'	Start of alignment in genome (beginning with 1, not 0).
+	'contigend'	End of alignment in genome (inclusive).
+	'readstart'	Start of alignment in read (beginning with 1, not 0).
+	'readend'	End of alignment in read (inclusive).
+	'readlength'	Length of the read in bases/colours.
+	'score'		Alignment score
+	'editstring'	Edit string: read to reference summary; see below.
+
+Additionally, probcalc output adds the following columns:
+
+	'pchance'	Probability that a read will align with a genome with 
+			as good a score or better by chance.
+	'pgenome'	Probability that a hit was generated via common 
+			evolutionary events characteristic of the genome.
+	'normodds'	Normalized pgenome/pchance.
+
+The  'editstring' column  contains  a short   description of the  alignment with
+reference  to the database    sequence.  This allows  at-a-glance   analysis  of
+alignments, including identification of miscalls, SNPs, indels, etc.
+
+The edit  string consists of numbers,  characters  and the  following additional
+symbols: '-', '(' and ')'. It is constructed as follows:
+
+    <number> = size of a matching substring
+    <letter> = mismatch, value is the tag letter
+    (<letters>) = gap in the reference, value shows the letters in the tag
+    - = one-base gap in the tag (i.e. insertion in the reference)
+    x = crossover (inserted between the appropriate two bases)
+
+For example:
+
+    A perfect match for 25-bp tags is: "25"
+    A SNP at the 16th base of the tag is: "15A9"
+    A four-base insertion in the reference: "3(TGCT)20"
+    A four-base deletion in the reference: "5----20"
+    Two sequencing errors: "4x15x6"	(i.e. 25 matches with 2 crossovers)
+ 
+The 'probcalc_mp' program has the following output:
+
+	#FORMAT: fwd_name fwd_chr fwd_editstring fwd_strand fwd_start\
+	fwd_end fwd_pg rev_name rev_chr rev_editstring rev_strand rev_start\
+	rev_end rev_pg distance normodds pgenome pchance
+	
+	for example:
+	0       1000_1003_1062_F3       chr10   25      -       71183122\
+	71183146        1.000   1000_1003_1062_R3       chr10   25\
+	-       71183699    71183723 1.000   601     1.000   0.967  0.0000000010
+
+	Descriptions of these columns are as follows:
+	'fwd_name'		Forward Read tag name
+	'fwd_chr'		Forward Genome (Contig/Chromosome) name
+	'fwd_editstring'	Forward Edit string: read to reference summary;
+				see above.
+	'fwd_strand'		Forward Genome strand ('+' or '-')
+	'fwd_start'		Forward Start of alignment in genome (beginning
+				with 1, not 0).
+	'fwd_end'		Forward End of alignment in genome (inclusive).
+	'fwd_pg'		Forward pgenome.	
+	'rev_name'		Reverse Read tag name
+	'rev_chr'		Reverse Genome (Contig/Chromosome) name
+	'rev_editstring'	Reverse Edit string: read to reference summary;
+				see above.
+	'rev_strand'		Reverse Genome strand ('+' or '-')
+	'rev_start'		Reverse Start of alignment in genome (beginning
+				with 1, not 0).
+	'rev_end'		Reverse End of alignment in genome (inclusive).
+	'rev_pg'		Reverse pgenome.
+	'distance'		Distance between the mate pairs
+	'pgenome'		Probability that the mate-pair hits were
+				generated via common evolutionary events
+				characteristic of the genome.
+	'pchance'		Probability that a mate pair will align with a
+				genome with as good a score or better by chance.
+	'normodds'		Normalized pgenome/pchance.
+	
+The shrimp_var tool has a significantly different output format:
+	>read_name edit_string contig_start #SNPs #ins #dels var_id1 var_id2 ...
+	
+	for example:
+	>example_1 2G1---12(AC)2 101 1 1 1 s-G-103 d-3-105 i-AC-119
+	
+	Description of these columns are as follows:
+	'read_name' 	The name of the read
+	'edit_string'	Edit string: read to reference summary; see above
+	'contig_start'	Start of alignment in genome (beginning with 1, not 0).
+	'#SNPs'		The number of SNPs present in the hit alignment 
+	'#ins'		The number of insertions present in the hit alignment
+	'#dels' 	The number of deletions	present in the hit alignment
+	'var_idX'	The variation id, description, and position. Details:
+
+		if  variation is a  SNP, the  var_idX is s-L-pos,  where s means
+		SNP, L is a  letter that the residue  is changed to, and  pos is
+		the contig position of the SNP; if variation is a insertion, the
+		var_idX is i-INS-pos where i  signals an insertion, INS includes
+		the inserted   residues and pos  is  the contig position  of the
+		insertion; if variation  is a deletion, the  var_idX is of  form
+		d-len-pos,  with d signaling   a deletion, len representing  the
+		length of the  deletion, and pos is the  contig position  of the
+		deletion. More examples  and a   discussion on negative   strand
+		handling is available in pdf via email.
+
+
+--------------------------------------------------------------------------------
+6. SHRiMP Algorithms
+--------------------------------------------------------------------------------
+
+SHRiMP  uses  a fast k-mer   scan in order  to  locate the  regions of potential
+homology. One  important feature is  that we  index the  reads,  rather than the
+reference genome.  This makes  our memory usage  independent of  the size of the
+genome (but proportional to the  size of the  largest contig). All of the k-mers
+in all of the source reads are  generated and a lookup  table mapping the k-mers
+to the reads where they are present is built. We use spaced k-mers (also used in
+the PatternHunter as well as many other tools) and allow the user to specify the
+particular pattern of ones (positions that must match) and zeros (positions that
+may differ).
+
+For each read containing the kmer, a notation is added  that a kmer hit was just
+made. If 'n' kmer hits can be fit in a genomic region of length 'm', the hit and
+the  region are  fed into a   vectored  Smith-Waterman algorithm to generate  an
+alignment score.  If   the score is  sufficient,  the score and  genomic  offset
+(index) is remembered.  Once this process  has completed for the entire  genome,
+top scoring saved read/index pairs are fed into a full Smith-Waterman algorithm,
+and a detailed output is generated.
+
+In order to deal with reads that match  the genome many  times, 'rmapper' uses a
+hash-and-cache mechanism.  Every  time  a genomic region  is  investigated for a
+match  against a given read (by  the vectored SW algorithm),   we compute a hash
+value  for  that region, and  we  save it along  with its  resulting  score in a
+per-read cache.  Subsequently, before  feeding another  genomic region into  the
+vectored SW   algorithm, we compute its  hash  value and we look   it up  in the
+cache. In the case of a cache hit, we use the saved score, bypassing the call to
+the vector SW algorithm.  Hash collisions are possible  and they might (or might
+not) result in   missed  matches, but  we trade  those   for non-negligible time
+savings. This mechanism can be entirely disabled by giving the '-Z' option.  The
+cache is implemented as a simple queue.
+
+In order  to  reduce the cost of   the full, non-vectored,  final Smith-Waterman
+alignment,  'rmapper' uses "anchors" or "necks"  to limit the  region  of the 2D
+matrix that is computed.  For   each match, the  locations  of the kmers   which
+triggered that match  during the  genomic scan are   saved; later, if  the match
+makes it to  the  final stage, we   compute the minimum  rectangular region that
+encloses all the kmer  matches, we add 'anchor_width'/2  space to its south-west
+and north-east, and we only  compute the DP  match scores  for that region.  The
+'anchor_width' is given  using '-A'. The  default is 8.  A  value of -1 disables
+the use of anchors.
+
+The speed  of execution depends largely on  the spaced seed employed, the number
+of desired matches within a window,  the window length, and Smith-Waterman score
+thresholds.   For example, aligning   22e6  25-colour  reads against  the  Ciona
+Savignyi genome (173.67 Mbases) takes approximately 4.5 hours on a cluster of 50
+4-way P4 Xeon  3.2GHz  Hyperthreaded CPUs  (200 cores) using   a spaced seed  of
+length  8,  weight 7,  a   window length of  30,  2  matches per window,   and a
+Smith-Waterman threshold of 1875 (penalties: 100 for  matches, -70 mismatch, -75
+gap open, -25 gap extend, -200 crossover).
+
+The closer   the expected matches are   to perfect, the   larger the spaced seed
+weight can be, and  the faster the k-mer scan  runs. By decreasing the weight by
+one, execution time increases by approximately  a factor of  four. Due to memory
+limitations of our implementation, weights quickly become impractical around 16.
+Longer weights are therefore handled is a  slightly different manner to overcome
+this. Similarly, exceedingly small weights will offer  little or no benefit over
+a full Smith-Waterman run.
+
+Please  note that the  vectored Smith-Waterman algorithm is written specifically
+for the SSE2 instruction set. Hence this  program will not run on non-x86/x86_64
+processors. Porting those algorithms  to   similar vector processors  should  be
+relatively straightforward.
+
+
+--------------------------------------------------------------------------------
+7. SHRiMP Statistics
+--------------------------------------------------------------------------------
+
+The 'probcalc' utility computes the probability that a hit would be generated by
+chance in a random genome, the probability that it is generated by the reference
+genome, and the normalized odds.
+
+To compute the probability that a hit happened  by chance (p_chance), we compute
+the probability that a match  equally good or better would  occur in a genome of
+equal length where  at every position  each nucleotide can be randomly  selected
+with  probability 0.25. To  compute this we  compute the number of k-mer strings
+that have fewer then the observed number changes. In  the case of mismatches and
+(for colour-space) crossovers, the number of such  strings is: \sum(i=0 -> subs)
+{ (length  choose  i) *  3^i   }. For indels,  the  number  of such strings  is:
+\sum(k=len_ref  -> len_read)  {  (k-1    choose  len_read-1) *  1^(len_ref)    *
+3^(k-len_ref) * 4^(len_read-k)  }. Explanations of  these formulae will be  made
+available in the  statistics section of  the SHRiMP paper. If  the hit does  not
+span  the whole read,  we  further  multiply  by (read_length-hit_length  +1) to
+account for the increased number of  matching strings. Now  let the total number
+of strings be Z; then we define  p_chance as 1-(1-(Z/(4^k)))^genome_length. This
+is the application of the Bayesian "noisy or"  to the probability that a certain
+position matched one of the strings  as close or closer to  the read in question
+than the real hit.
+
+The second value  computed  by probcalc is the  probability  that each  hit  was
+generated by the genome (p_genome). For this we use  a bootstrapping approach to
+estimate the rates of matches, mismatches (SNPs), indels, and, for colour space,
+crossovers, taking only the best hit  of every read  if it is below the p-chance
+threshold. The probability that a certain region of the genome generated a given
+read is exactly the product of the frequencies of  all of the events observed in
+the alignment.
+
+Finally   the    normalized  odds are   computed  by     summing   up  the  odds
+(p_genome/p_chance) for every  hit for every read,  and  dividing each value  by
+their sum.  This value represents how  much more likely is this  hit to be right
+than all the other ones. For example  having two equally good  hits with lead to
+normalized odd values of 0.5 for both, while having an almost  exact match and a
+more distant one will lead to large discrepancies.
+
+
+
+--------------------------------------------------------------------------------
+8. Mate Pairs
+--------------------------------------------------------------------------------
+
+The probcalc_mp project  takes  in a  sorted file (ascii  or binary  filled with
+mapping_t structures as defined in dbtypes.h). This is a file with read mappings
+as outputted by the 'probcalc' tool. Assuming the binary  file is sorted by read
+id,    probcalc_mp  will  find  all   the    mate  pair   mappings, assign  them
+probability-based confidence values (see the SHRiMP paper), and output them. How
+and which computations are done, and which mate-pairs are  output depends on the
+given parameters. Due to the  fact that this software is  aimed at being used in
+current NGS research, many parameters are provided.
+
+
+--------------------------------------------------------------------------------
+8. Contact
+--------------------------------------------------------------------------------
+
+The program website is 
+    	http://compbio.cs.toronto.edu/shrimp
+
+The authors of this software may be contacted at the following e-mail address:
+	shrimp at cs dot toronto dot edu
+
+
+--------------------------------------------------------------------------------
+9. Acknowledgements
+--------------------------------------------------------------------------------
+
+Development  was performed at the University  of Toronto's Computational Biology
+lab in collaboration with the Stanford University Sidow Lab.
+
+The   development of this   distribution was made possible  in  part by National
+Engineering and Research Council of Canada Undergraduate Student Research Awards
+(NSERC USRAs).

@@ -1,0 +1,132 @@
+SOAPaligner/soap2(1)          Bioinformatics tool         SOAPaligner/soap2(1)
+
+
+
+NNAAMMEE
+       SOAPaligner/soap2 - Short Oligonucleotide Analysis Package aligner
+
+SSYYNNOOPPSSIISS
+       soap reference.index short_reads.fast[a|q] alignment.out [options]
+
+DDEESSCCRRIIPPTTIIOONN
+       SOAPaligner/soap2 is a member of the SOAP (Short Oligonucleotide Analy-
+       sis Package). It is an updated  version  of  SOAP  software  for  short
+       oligonucleotide  alignment.  The new program features in super fast and
+       accurate alignment for huge amounts of short reads generated  by  Illu-
+       mina/Solexa  Genome  Analyzer.  Compared to soap v1, it is one order of
+       magnitude faster. It require only 2 minutes aligning one  million  sin-
+       gle-end  reads  onto  the  human  reference  genome. Another remarkable
+       improvement of SOAPaligner is that it now supports a wide range of  the
+       read length.
+
+       SOAPaligner  benefitted in time and space efficiency by a revolution in
+       the basic data structures and algorithms used.The core  algorithms  and
+       the indexing data structures (2way-BWT) are developed by the algorithms
+       research group of the Department of Computer Science, the University of
+       Hong Kong (T.W. Lam, Alan Tam, Simon Wong, Edward Wu and S.M. Yiu).
+
+CCOOMMMMAANNDD AANNDD OOPPTTIIOONNSS
+       ssooaapp  -D  <in.fasta.index>  -a  <query.file.a>  [-b  <query.file.b>] -o
+       <alignment.output> [-2 <unpaired.output>] [options]
+
+       OOPPTTIIOONNSS::
+
+              --DD SSTTRR Prefix name for reference index [*.index].  See  AAPPPPEENNDDIIXX
+                     How to build the reference index
+
+              --aa SSTTRR Query file, for SE reads alignment or one end of PE reads
+
+              --bb SSTTRR Query b file, one end of PE reads
+
+              --oo SSTTRR Output file for alignment results
+
+              --22 SSTTRR Output file contains mapped but unpaired reads when do PE
+                     alignment
+
+              --uu SSTTRR Output file for unmapped reads, [none]
+
+              --mm IINNTT Minimal insert size INT allowed for PE, [400]
+
+              --xx IINNTT Maximal insert size INT allowed for PE, [600]
+
+              --nn IINNTT Filter low quality reads contain more INT bp Ns, [5]
+
+              --tt     Output reads id instead reads name, [none]
+
+              --rr IINNTT How  to  report repeat hits, 0=none; 1=random one; 2=all,
+                     [1]
+
+              --RR     RF alignment for long insert size(>=  2k  bps)  PE  data,
+                     [none] FR alignment
+
+              --ll IINNTT For  long  reads  with  high  error rate at 3'-end, those
+                     can't align whole length, then first align 5' INT bp sub-
+                     sequence as a seed, [256] use whole length of the read
+
+              --ss IINNTT minimal alignment length (for soft clip)
+
+              --vv IINNTT Totally allowed mismatches in one read, [5]
+
+              --gg IINNTT Allow gap size in one read, [0]
+
+              --MM IINNTT Match  mode for each read or the seed part of read, which
+                     shouldn't contain more than 2 mismaches, [4]
+
+                     0: exact match only
+
+                     1: 1 mismatch match only
+
+                     2: 2 mismatch match only
+
+                     4: find the best hits
+
+              --pp IINNTT Multithreads, n threads, [1]
+
+AAPPPPEENNDDIIXX
+       Before use soap2 to do alignment, the reference index must be generated
+       by 2bwt-builder.
+
+              22bbwwtt--bbuuiillddeerr <reference.fasta>
+
+              NNOOTTEE:: 1. the reference input should only be FASTA format; 2. the
+              program wil auto generate the index files in the directory where
+              the fasta file is located, so confirm the permission at first.
+
+EENNVVIIRROONNMMEENNTT
+       The  datastructure  is imcompatible with 32bit, so it can't be migrated
+       on any 32bit platforms.  Due to using the MMX instruction to  opitimize
+       parts of code, the current version can only run on xx8866__6644 ppllaattffoorrmm..  We
+       will provide a universal version for most of the 64bit platform  later.
+
+       HHAARRDDWWAARREE RREEQQUUIIRREEMMEENNTT
+              1.8Gb RAM (for a genome as large as human's)
+
+              2.at  least  8Gb hard disk to store index (for a genome as large
+              as human's)
+
+       SSYYSSTTEEMM RREEQQUUIIRREEMMEENNTT
+              Linux x86_64
+
+SSEEEE AALLSSOO
+       Website for SOAP <http://soap.genomics.org.cn>,
+
+       Google Group for SOAP <http://groups.google.com/group/bgi-soap>
+
+       PPuubblliiccaattiioonn::
+              "SOAP: short oligonucleotide alignment program" (2008) BIOINFOR-
+              MATICS,Vol. 24 no.5 2008, pages 713-714
+
+AATTHHOOUURR
+       BBGGII Shenzhen SOAP team. The core algorithm 2way-BWT is wrotten by Prof.
+       T.W. Lam and his team at HongKong University.
+
+RREEPPOORRTT BBUUGGSS
+       Report bugs to <soap@genomics.org.cn>
+
+AACCKKNNOOWWLLEEDDGGEEMMEENNTTSS
+       We appreciate Prof. T.W. Lam, Alan Tam, Simon Wong, Edward Wu and  S.M.
+       Yiu prominent work on 2way-BWT.
+
+
+
+SOAPaligner-2.1X                  25 May 2009             SOAPaligner/soap2(1)

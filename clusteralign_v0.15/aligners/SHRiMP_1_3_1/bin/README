@@ -1,0 +1,16 @@
+$Id: README 341 2009-05-31 20:12:23Z rumble $
+
+Program			Function	
+-------			--------
+mergehits-cs		merge all hits into one line per read (colour space)
+mergehits-ls		merge all hits into one line per read (letter space)
+mergehits-hs		merge all hits into one line per read pair (helicos)
+prettyprint-cs		pretty print alignments from rmapper/probcalc (c. space)
+prettyprint-ls		pretty print alignments from rmapper/probcalc (l. space)
+prettyprint-hs		pretty print alignments from rmapper/probcalc (helicos)
+probcalc		parse rmapper output (non-pretty-printed output)
+probcalc_mp		combine read mappings from probalc into mate pairs
+rmapper-cs		colourspace read mapper
+rmapper-ls		letterspace read mapper
+rmapper-hs		helicos read mapper
+shrimp_var		list detailed hit variations in rmapper/probcalc results

@@ -1,0 +1,18 @@
+$Id: TODO 325 2009-02-27 00:40:20Z rumble $
+
+0) There should be a 'shrimp' script in the root directory that wraps all
+   sorts of functionality and generally makes things very trivial to use.
+1) There is some code duplication, for instance in fasta parsers.
+2) The fasta parsing code is doubtlessly going to choke on some slightly
+   different formats someday.
+3) str* operations are often not done safely. We should add local strl*
+   functions and use them.
+4) Many outputs could probably benefit from spacing parameters to printf,
+   rather than inserting spaces in the code.
+5) Pre-calculate and cache translations of reads, so as not to do them over
+   again for each S-W call. This may improve CS vectored performance a fair bit.
+6) Fix the for-loop spaced seed compressor so it scales.
+7) Fix time calculations (and perhaps errors) when -n is large (e.g. 222).
+8) Add an optional S-W score threshold to prettyprint.
+9) Build a regression test harness.
+A) Handle Solexa read formats, or package a python utility to convert to fasta.

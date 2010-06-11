@@ -1,0 +1,13 @@
+-------------------------------------------------------------------------------
+IMPORTANT NOTE: 31 March 2009
+Remove the modifyAnn.
+
+
+-------------------------------------------------------------------------------
+IMPORTANT NOTE:
+Due to the format of annotation file is different from SOAPalginer/soap2.0.*,
+we provide a tool to change the file format. You should only run the program
+like:
+	./modifyAnn human18.fa.index.ann
+it will automately chang annotation file to the new format. Also you can 
+rebuild the index files use 2bwt-builder contained in this package.

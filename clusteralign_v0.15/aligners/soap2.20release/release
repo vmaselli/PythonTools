@@ -1,0 +1,77 @@
+_______________________________________________________________________________
+release SOAPaligner/soap2 v2.19		July 13 2009
+Compile Date: Mon Jul 13 11:22:02 CST 2009
+1. fix -M 0 only report exact match error
+2. fix -g option error, in previous version will be 1 bp longer than option 
+   given
+_______________________________________________________________________________
+
+_______________________________________________________________________________
+release SOAPaligner/soap2 v2.18		May 25 2009
+Compile Date: Sun May 24 19:49:13 CST 2009
+1. fix segment fault when do gap alignment and multithreads function
+2. fix bugs some start postion <0 or > chrLength
+3. -l option compatible with diff read_length
+4. -s min_length after soft clip
+5. seq and quality real length is coordinated by soft clip
+6. MD contain no 0 except first
+_______________________________________________________________________________
+
+
+_______________________________________________________________________________
+release SOAPaligner/soap2 v2.17		April 3 2009
+Compile Date: Fri Apr  3 10:35:45 CST 2009 
+1. fix bugs
+_______________________________________________________________________________
+
+
+_______________________________________________________________________________
+release SOAPaligner/soap2 v2.16		March 31 2009
+Compile Date: Tue Mar 31 14:42:56 CST 2009
+1. fix segment fault -r 2
+_______________________________________________________________________________
+
+
+_______________________________________________________________________________
+release SOAPaligner/soap2 v2.15		March 27 2009
+Compile Date: Fri Mar 27 10:27:01 CST 2009
+1. fix bugs in allowed gap alignment and using Smith-Waterman to rescue the lost
+reads.
+2. output MD field(suggested by SAM Format) at the last colum
+3. fixed bugs
+_______________________________________________________________________________
+
+
+_______________________________________________________________________________
+release SOAPaligner/soap2 v2.11		March 16 2009
+COMPILE_TIME: Mon Mar 16 15:32:33 CST 2009
+1. fix some bugs
+_______________________________________________________________________________
+
+_______________________________________________________________________________
+release SOAPaligner/soap2 v2.10		March 3 2009
+COMPILE_TIME: Tue Mar  3 22:05:15 CST 2009
+1. allow more than 2 mismatches at 3'-ends when align long reads (>35bps) 
+2. add the multithreads function
+3. update the index build program 2bwt-builder
+4. chang the "*.index.ann" file format, please use "./modifyAnn" to modify it
+_______________________________________________________________________________
+
+_______________________________________________________________________________
+release SOAPaligner/soap2 v2.01
+MAKE_TIME: Mon Nov 24 10:59 CST 2008
+1. add the MAKE_TIME in usage
+2. fix the error position bug
+3. add the function trim 3' low quality bases
+_______________________________________________________________________________
+
+_______________________________________________________________________________
+release SOAPaligner/soap2 v2.01 beta
+17-11-2008 SOAPaligner/soap2 v2.01 beta
+1. fix the bug when build the reference index table
+_______________________________________________________________________________
+
+_______________________________________________________________________________
+13-11-2008 SOAPaligner/soap2 v2.00
+1. release the first stable version of SOAPaligner/soap2
+_______________________________________________________________________________
